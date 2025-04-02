@@ -45,7 +45,7 @@
 - 点击 **可视化场景** 按钮，加载并观察整个场景模型。  
 - ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/3.png)
 - 可视化场景
-- ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/4.png)
+- ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/11.png)
 ---
 
 ### **2. 添加标注**
@@ -59,14 +59,14 @@
 2. **点选物体**：
    - 点击 **添加描述并点选物体** 按钮，进入点选模式。
    - 软件会弹出可视化窗口，如下图所示：  
-     ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/6.png)
+     ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/12.png)
    - 在界面中，将鼠标移动到目标物体上的一个点，**按住 Shift 并左键点击**，完成点选。
    - 添加完所有物体后，关闭点选窗口。
 
 3. **确认可视化**：
    - 点选完成后关闭窗口并选择yes，软件会弹出一个窗口，显示您选择的物体高亮可视化效果：  
      ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/7.png)
-     ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/8.png)
+     ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/13.png)
    - 如果可视化正确，关闭窗口并进行下一个问题的描述和点选。
    - 如果可视化不正确，可在右侧**已保存的标注**列表中选择错误的描述，点击 **删除选中标注** 按钮进行删除。  
      ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/9.png)
