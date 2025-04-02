@@ -7,7 +7,7 @@
 ## **安装与启动**
 
 1. **安装依赖**：
-   - 确保您已经安装了 Python 环境（建议 Python 3.8 及以上）。
+   - 确保您已经安装了 Python 环境（建议 Python 3.10.0）。
    - 使用以下命令安装所需依赖：
      ```bash
      pip install open3d pyqt5 numpy
