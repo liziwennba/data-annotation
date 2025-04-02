@@ -19,7 +19,7 @@
      python test.py
      ```
    - 启动后，您将看到主界面，如下图所示：  
-     **图【1】：软件界面**  
+     ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/1.png)
 
 ---
 
@@ -35,7 +35,7 @@
 2. **选择场景文件夹**：
    - 在软件中点击 **选择场景文件夹** 按钮，选择某个场景文件夹（例如 `XXX`）。
    - 选择后，软件会加载该场景的 `.ply` 文件（3D 模型）和 `.npy` 文件（实例掩码）。
-   - **图【2】：选择场景文件夹**
+   - ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/2.png)
 
 ---
 
@@ -43,8 +43,9 @@
 
 ### **1. 可视化场景**
 - 点击 **可视化场景** 按钮，加载并观察整个场景模型。  
-- **图【3】：可视化场景**
-
+- ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/3.png)
+- 可视化场景
+- ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/4.png)
 ---
 
 ### **2. 添加标注**
@@ -53,27 +54,28 @@
      ```
      我刚洗完澡，背对淋浴器和花洒，请帮我分割出挂在暖气片上离我最近的可以用来擦干身体的物体。
      ```
-   - **图【4】：输入物体描述**
+   - ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/5.png)
 
 2. **点选物体**：
    - 点击 **添加描述并点选物体** 按钮，进入点选模式。
    - 软件会弹出可视化窗口，如下图所示：  
-     **图【5】：点选物体**
+     ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/6.png)
    - 在界面中，将鼠标移动到目标物体上的一个点，**按住 Shift 并左键点击**，完成点选。
    - 添加完所有物体后，关闭点选窗口。
 
 3. **确认可视化**：
-   - 点选完成后，软件会弹出一个窗口，显示您选择的物体高亮可视化效果：  
-     **图【6】：选择物体的可视化**
+   - 点选完成后关闭窗口并选择yes，软件会弹出一个窗口，显示您选择的物体高亮可视化效果：  
+     ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/7.png)
+     ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/8.png)
    - 如果可视化正确，关闭窗口并进行下一个问题的描述和点选。
    - 如果可视化不正确，可在右侧**已保存的标注**列表中选择错误的描述，点击 **删除选中标注** 按钮进行删除。  
-     **图【7】：删除标注**
+     ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/9.png)
 
 ---
 
 ### **3. 保存标注**
 - 完成所有问题的标注后，点击 **保存所有标注** 按钮，将标注结果保存为 JSON 文件。
-- **图【8】：保存标注**
+- ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/10.png)
 
 ---
 
@@ -84,7 +86,7 @@
 
 ## **注意事项**
 1. **场景切换时的标注显示**：
-   - 选择新场景后，之前场景的标注会继续显示在列表中（这是一个已知问题）。
+   - 选择新场景后，之前场景的标注会继续显示在列表中（这是一个bug）。
    - 但输入第一个描述并点选保存后，旧的标注会消失，不影响操作。
 
 2. **点选技巧**：
