@@ -2,8 +2,6 @@
 
 本工具是一个基于 3D 场景的标注工具，支持通过可视化界面点选物体并添加标注描述。以下是详细的使用流程和注意事项。
 
-This is a 3D annotation tool based on PyQt5 and Open3D. It enables interactive selection of 3D objects via a GUI and associates them with user-written descriptions. The following guide walks through installation, usage, and best practices.
-
 ---
 
 ## 🧰 安装与启动 Installation & Startup
@@ -13,7 +11,7 @@ This is a 3D annotation tool based on PyQt5 and Open3D. It enables interactive s
 - Run the following command:
 
 ```bash
-pip install open3d pyqt5 numpy
+pip install open3d==0.18.0 pyqt5 numpy
 ```
 
 ### 2. 启动软件 Launch the tool
@@ -118,7 +116,74 @@ Repeat previous steps for each new scene.
 ---
 
 通过以上步骤，您即可完成一个完整的 3D 场景标注任务。
-You are now ready to annotate 3D scenes interactively and export structured intent-based annotations.
+
+---
+
+## 📦 Output Format
+
+Example output JSON:
+
+```json
+{
+  "description": "我坐在马桶上，面对暖气片...",
+  "object_ids": [43, 44, 45],
+  "full_text": "我坐在马桶上... [43] [44] [45]"
+}
+```
+
+---
+
+## ✅ 标注指南 / Annotation Guidelines
+
+| 项目 / Aspect      | 最佳实践 / Best Practice                                                   |
+|--------------------|----------------------------------------------------------------------------|
+| 描述 / Description | 使用自然、具备上下文的语言，并包含空间方位信息。<br>Use natural, context-rich language with spatial clues. |
+| 点选对象 / Object Picking | 仅选择与意图描述相关的目标物体。<br>Only include objects relevant to the intention.              |
+| 完整文本 / Full Text | 在描述末尾添加目标实例的编号，格式为 `[]`。<br>Append instance IDs in `[]` after the description. |
+
+---
+
+## 🔍 常见问题与解决方法 / Troubleshooting
+
+| 问题 / Problem                     | 解决方案 / Solution                                                        |
+|-----------------------------------|---------------------------------------------------------------------------|
+| 未检测到 mesh 或 instance 文件 <br> No mesh/instance file detected | 确保选中的文件夹中包含 `.ply` 和 `.npy` 文件。<br>Ensure `.ply` and `.npy` exist in the selected folder. |
+| 未选中任何点 <br> No points selected          | 点选时请按住 Shift 键并点击目标物体表面。<br>Shift + click only on valid object surfaces. |
+| 无法保存标注 <br> Save fails                  | 确保添加了至少一个标注后再保存。<br>Check if annotations exist before saving. |
+
+---
+
+## 📂 Example Scene Folder Structure
+
+```
+scene0005_00/
+└── scans/
+    ├── mesh_aligned_0.05.ply
+    ├── instance_mask.npy
+    └── scene0005_00_annotations.json
+```
+
+---
+
+## 🧩 Future Improvements
+
+- Multi-language UI support
+- Support for segmentation overlay
+- Annotation quality checking module
+
+---
+
+## 📜 License
+
+This tool is intended for academic use only. Please cite or acknowledge the authors when used in publications.
+
+---
+
+## 🙌 Acknowledgments
+
+- Developed by [MBZUAI / Ziwen Li, Jiaxin Huang, HanLve Zhang]
+- Built using [Open3D](http://www.open3d.org/) and [PyQt5](https://pypi.org/project/PyQt5/)
+- Dataset: [ScanNet++](https://kaldir.vc.in.tum.de/scannetpp/)
 
 如有问题，请联系项目管理员。
 For support, contact the project maintainer.
