@@ -21,7 +21,7 @@ python test_.py
 
 启动后界面如下 / Main window on launch:
 
-![软件界面](https://github.com/liziwennba/data-annotation/raw/main/1.png)
+![软件界面](https://github.com/liziwennba/data-annotation/raw/main/figures/1.png)
 
 ---
 
@@ -37,7 +37,7 @@ path/to/dataset/XXX
 点击 **选择场景文件夹** 按钮并选择场景目录。系统将自动读取 `.ply` 与 `.npy` 文件。
 Click `选择场景文件夹` and select a folder. The tool will automatically load the mesh and mask files.
 
-![加载界面](https://github.com/liziwennba/data-annotation/raw/main/2.png)
+![加载界面](https://github.com/liziwennba/data-annotation/raw/main/figures/2.png)
 
 ---
 
@@ -47,8 +47,8 @@ Click `选择场景文件夹` and select a folder. The tool will automatically l
 - 点击 **可视化场景** 以查看场景全貌
 Click `可视化场景` to open a viewer.
 
-![视图](https://github.com/liziwennba/data-annotation/raw/main/3.png)
-![视图2](https://github.com/liziwennba/data-annotation/raw/main/11.png)
+![视图](https://github.com/liziwennba/data-annotation/raw/main/figures/3.png)
+![视图2](https://github.com/liziwennba/data-annotation/raw/main/figures/11.png)
 
 ---
 
@@ -60,13 +60,13 @@ Click `可视化场景` to open a viewer.
 我刚洗完澡，背对淋浴器和花洒，请帮我分割出挂在暖气片上离我最近的可以用来擦干身体的物体。
 ```
 
-![输入框](https://github.com/liziwennba/data-annotation/raw/main/5.png)
+![输入框](https://github.com/liziwennba/data-annotation/raw/main/figures/5.png)
 
 #### 2. 点选物体 Select objects by clicking
 点击 `添加描述并点选物体`，进入点选窗口。
 Click `添加描述并点选物体` to open the interactive selection window.
 
-![点选](https://github.com/liziwennba/data-annotation/raw/main/12.png)
+![点选](https://github.com/liziwennba/data-annotation/raw/main/figures/12.png)
 
 在窗口中按住 **Shift + 左键** 点击目标物体上的点。
 Hold **Shift** and left-click to pick points.
@@ -74,12 +74,12 @@ Hold **Shift** and left-click to pick points.
 #### 3. 可视化确认 Visual confirmation
 成功点选后将弹出高亮实例视图窗口：
 
-![可视化1](https://github.com/liziwennba/data-annotation/raw/main/7.png)
-![可视化2](https://github.com/liziwennba/data-annotation/raw/main/13.png)
+![可视化1](https://github.com/liziwennba/data-annotation/raw/main/figures/7.png)
+![可视化2](https://github.com/liziwennba/data-annotation/raw/main/figures/13.png)
 
 如需删除错误标注，请在右侧点击 `删除选中标注`：
 
-![删除按钮](https://github.com/liziwennba/data-annotation/raw/main/9.png)
+![删除按钮](https://github.com/liziwennba/data-annotation/raw/main/figures/9.png)
 
 ---
 
@@ -88,7 +88,7 @@ Hold **Shift** and left-click to pick points.
 点击 `保存所有标注` 保存当前所有标注。
 Click `保存所有标注` to store annotations as JSON.
 
-![保存界面](https://github.com/liziwennba/data-annotation/raw/main/10.png)
+![保存界面](https://github.com/liziwennba/data-annotation/raw/main/figures/10.png)
 
 ---
 
