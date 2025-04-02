@@ -16,7 +16,7 @@
 2. **启动软件**：
    - 运行以下命令启动标注工具：
      ```bash
-     python test.py
+     python test_.py
      ```
    - 启动后，您将看到主界面，如下图所示：  
      ![软件界面](https://github.com/liziwennba/data-annotation/raw/main/1.png)
