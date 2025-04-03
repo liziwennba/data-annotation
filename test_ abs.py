@@ -283,6 +283,27 @@ class MeshAnnotator(QMainWindow):
         except Exception as e:
             self.status_label.setText(f"状态: 可视化更新后的mesh出错: {str(e)}")
             QMessageBox.warning(self, "可视化错误", f"无法可视化更新后的mesh: {str(e)}")    
+    def visualize_highlighted_mesh(self, highlighted_mesh):
+        """可视化高亮后的mesh副本"""
+        try:
+            coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5)
+            vis = o3d.visualization.Visualizer()
+            vis.create_window(window_name=f"高亮后的场景: {self.scene_name}", width=1024, height=768)
+            vis.add_geometry(highlighted_mesh)
+            vis.add_geometry(coordinate_frame)
+            
+            # 设置为白色背景
+            opt = vis.get_render_option()
+            opt.background_color = np.array([1.0, 1.0, 1.0])  # 白色背景
+            
+            vis.run()
+            vis.destroy_window()
+            
+            self.status_label.setText(f"状态: 高亮后的mesh已可视化")
+            
+        except Exception as e:
+            self.status_label.setText(f"状态: 可视化高亮后的mesh出错: {str(e)}")
+            QMessageBox.warning(self, "可视化错误", f"无法可视化高亮后的mesh: {str(e)}")
     def add_description(self):
         """添加描述并启动点选模式"""
         description = self.description_input.toPlainText().strip()
@@ -296,7 +317,7 @@ class MeshAnnotator(QMainWindow):
             QMessageBox.warning(self, "文件错误", "请先选择包含mesh和实例掩码的场景目录")
             return
         
-        # 点选逻辑
+        # 加载mesh（如果尚未加载）
         if not self.mesh:
             try:
                 self.mesh = o3d.io.read_triangle_mesh(self.mesh_path)
@@ -349,7 +370,6 @@ class MeshAnnotator(QMainWindow):
             instance_ids = []
             points = []
             vertices = np.asarray(self.mesh.vertices)
-            colors = np.asarray(self.mesh.vertex_colors)
             
             if len(self.instance_mask) != len(vertices):
                 self.status_label.setText(f"状态: 实例掩码大小 ({len(self.instance_mask)}) 与mesh顶点数 ({len(vertices)}) 不匹配")
@@ -372,12 +392,16 @@ class MeshAnnotator(QMainWindow):
             point1, point2 = points
             distance = np.linalg.norm(point1 - point2)
             
+            # 创建新的mesh副本以进行可视化
+            highlighted_mesh = o3d.geometry.TriangleMesh(self.mesh)  # 复制原始mesh
+            colors = np.asarray(highlighted_mesh.vertex_colors)
+            
             # 更新实例对应的顶点为绿色
             for instance_id in instance_ids:
                 mask = (self.instance_mask == instance_id)
                 colors[mask] = [0, 1, 0]  # 绿色
             
-            self.mesh.vertex_colors = o3d.utility.Vector3dVector(colors)  # 更新mesh颜色
+            highlighted_mesh.vertex_colors = o3d.utility.Vector3dVector(colors)  # 更新副本的颜色
             
             # 创建新的标注项
             new_annotation = {
@@ -403,8 +427,8 @@ class MeshAnnotator(QMainWindow):
             else:
                 self.status_label.setText("状态: 已取消添加标注")
                 
-            # 实时可视化更新后的mesh
-            self.visualize_updated_mesh()
+            # 实时可视化mesh副本
+            self.visualize_highlighted_mesh(highlighted_mesh)
             
         except Exception as e:
             self.status_label.setText(f"状态: 点选过程中出错: {str(e)}")
