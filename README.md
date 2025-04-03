@@ -27,11 +27,52 @@ python test_.py
 
 ## 📁 数据准备 Data Preparation
 
-### 1. 解压并查看场景目录 Unpack and inspect scene folder
-```bash
-path/to/dataset/XXX
+### 1. 数据获取 Download Data
+
+我们将通过 OneDrive 共享数据：
+- 每位标注员仅需下载 `data/` 目录下自己负责的场景文件夹
+- 文件夹格式为：`data/3db0a1c8f3/scans/`
+- 下载后将 `scans` 文件夹 **重命名为对应场景名**，如 `3db0a1c8f3`
+
+📌 结构示例：
 ```
-其中 `XXX` 为场景编号 / `XXX` is the scene folder name.
+data/
+└── 3db0a1c8f3/
+    ├── mesh_aligned_0.05.ply
+    └── segments_anno.json
+```
+
+
+### 2. 预处理生成 instance.npy 文件
+使用 `data_preprocess.py` 对每个场景文件夹进行预处理，生成每个场景独立的 `instance.npy` 掩码。
+
+请将脚本路径替换为你的实际路径。示例代码如下：
+
+```python
+import os
+import json
+import open3d as o3d
+import numpy as np
+
+for i in os.listdir('your/path/to/dataset'):
+    name = i
+    with open(f'your/path/to/dataset/{name}/segments_anno.json', 'r') as f:
+        a = json.load(f)
+    pcd = o3d.io.read_point_cloud(f'your/path/to/dataset/{name}/mesh_aligned_0.05.ply')
+    points = np.asarray(pcd.points)
+    mask = np.zeros((points.shape[0]))
+    for seg in a['segGroups']:
+        mask[np.array(seg['segments'])] = seg['objectId']
+    np.save(f'your/path/to/dataset/{name}/instance.npy', mask)
+```
+
+运行完成后，每个场景目录下应包含：
+```
+3db0a1c8f3/
+├── mesh_aligned_0.05.ply
+├── segments_anno.json
+└── instance.npy
+```
 
 ### 2. 选择场景文件夹 Select scene folder
 点击 **选择场景文件夹** 按钮并选择场景目录。系统将自动读取 `.ply` 与 `.npy` 文件。
