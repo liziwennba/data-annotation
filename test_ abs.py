@@ -262,14 +262,34 @@ class MeshAnnotator(QMainWindow):
         except Exception as e:
             self.status_label.setText(f"状态: 可视化失败: {str(e)}")
             QMessageBox.warning(self, "可视化错误", f"无法可视化场景: {str(e)}")
+    def visualize_updated_mesh(self):
+        """可视化更新后的mesh，包括颜色变化"""
+        try:
+            coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5)
+            vis = o3d.visualization.Visualizer()
+            vis.create_window(window_name=f"更新后的场景: {self.scene_name}", width=1024, height=768)
+            vis.add_geometry(self.mesh)
+            vis.add_geometry(coordinate_frame)
             
+            # 设置为白色背景
+            opt = vis.get_render_option()
+            opt.background_color = np.array([1.0, 1.0, 1.0])  # 白色背景
+            
+            vis.run()
+            vis.destroy_window()
+            
+            self.status_label.setText(f"状态: 实时可视化更新后的场景")
+            
+        except Exception as e:
+            self.status_label.setText(f"状态: 可视化更新后的mesh出错: {str(e)}")
+            QMessageBox.warning(self, "可视化错误", f"无法可视化更新后的mesh: {str(e)}")    
     def add_description(self):
         """添加描述并启动点选模式"""
         description = self.description_input.toPlainText().strip()
         
+        # 如果没有输入描述，则使用空字符串作为默认描述
         if not description:
-            QMessageBox.warning(self, "描述错误", "请先输入描述")
-            return
+            description = ""  # 设置默认描述为空字符串
         
         # 检查mesh和实例掩码是否加载
         if not self.mesh_path or not self.instance_mask_path:
@@ -329,6 +349,7 @@ class MeshAnnotator(QMainWindow):
             instance_ids = []
             points = []
             vertices = np.asarray(self.mesh.vertices)
+            colors = np.asarray(self.mesh.vertex_colors)
             
             if len(self.instance_mask) != len(vertices):
                 self.status_label.setText(f"状态: 实例掩码大小 ({len(self.instance_mask)}) 与mesh顶点数 ({len(vertices)}) 不匹配")
@@ -351,6 +372,13 @@ class MeshAnnotator(QMainWindow):
             point1, point2 = points
             distance = np.linalg.norm(point1 - point2)
             
+            # 更新实例对应的顶点为绿色
+            for instance_id in instance_ids:
+                mask = (self.instance_mask == instance_id)
+                colors[mask] = [0, 1, 0]  # 绿色
+            
+            self.mesh.vertex_colors = o3d.utility.Vector3dVector(colors)  # 更新mesh颜色
+            
             # 创建新的标注项
             new_annotation = {
                 "description": description,
@@ -362,10 +390,10 @@ class MeshAnnotator(QMainWindow):
             
             # 确认添加
             reply = QMessageBox.question(self, '确认添加标注', 
-                                         f'确认添加以下标注？\n\n描述: {description}\n'
-                                         f'实例ID: {instance_ids}\n'
-                                         f'两点之间距离: {distance:.4f} 米',
-                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+                                        f'确认添加以下标注？\n\n描述: {description or "(空)"}\n'
+                                        f'实例ID: {instance_ids}\n'
+                                        f'两点之间距离: {distance:.4f} 米',
+                                        QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             
             if reply == QMessageBox.Yes:
                 self.annotations.append(new_annotation)
@@ -374,6 +402,9 @@ class MeshAnnotator(QMainWindow):
                 self.status_label.setText(f"状态: 已添加标注，选中了实例 {instance_ids}，距离 {distance:.4f} 米")
             else:
                 self.status_label.setText("状态: 已取消添加标注")
+                
+            # 实时可视化更新后的mesh
+            self.visualize_updated_mesh()
             
         except Exception as e:
             self.status_label.setText(f"状态: 点选过程中出错: {str(e)}")
