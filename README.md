@@ -98,7 +98,7 @@ Click `可视化场景` to open a viewer.
 #### 1. 输入描述 Enter a description
 在左侧输入框中输入自然语言描述，如：
 ```text
-我刚洗完澡，背对淋浴器和花洒，请帮我分割出挂在暖气片上离我最近的可以用来擦干身体的物体。
+站在门后，望向正前方，左手边的
 ```
 
 ![输入框](https://github.com/liziwennba/data-annotation/raw/main/figures/5.png)
