@@ -185,7 +185,7 @@ class MeshAnnotator(QMainWindow):
             return
         
         # 尝试加载annotations文件
-        self.annotations_file_path = os.path.join(self.scene_dir, f"{self.scene_name}_annotations.json")
+        self.annotations_file_path = os.path.join(self.scene_dir, f"{self.scene_name}_abs_annotations.json")
         if os.path.exists(self.annotations_file_path):
             try:
                 with open(self.annotations_file_path, 'r', encoding='utf-8') as f:
@@ -463,7 +463,7 @@ class MeshAnnotator(QMainWindow):
             return
         
         if not self.annotations_file_path:
-            self.annotations_file_path = os.path.join(self.scene_dir, f"{self.scene_name}_annotations.json")
+            self.annotations_file_path = os.path.join(self.scene_dir, f"{self.scene_name}_abs_annotations.json")
         
         try:
             with open(self.annotations_file_path, 'w', encoding='utf-8') as f:
