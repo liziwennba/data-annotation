@@ -142,23 +142,23 @@ Repeat previous steps for each new scene.
 
 ---
 
-# 🧠 提问方式（四类模板）
+# 🧠 三类问题示例
 
-# 第一视角问题处理指南
+## 第一视角问题处理指南
 
 ## 处理思路
 **先定位 → 后寻找目标物体**
 1. 通过场景中的显著定位点确定观察视角
 2. 基于定位点描述目标物体的空间关系/特征
 
-## 示例场景
+### 示例场景
 ![Scene Example](https://github.com/liziwennba/data-annotation/blob/main/figures/annotation_example_1.jpg)<!-- 替换实际图片路径 -->
 - 有效定位点示例：
   - 刚进门背对（正对）着门
   - 坐在餐桌旁背对（正对）窗户的椅子上
   - 坐在沙发靠近窗户的一侧
 
-## 定位点使用规范
+### 定位点使用规范
 以 `刚进门背对着门` 为例：
 ![Position Example](https://github.com/liziwennba/data-annotation/blob/main/figures/annotation_example_2.png)<!-- 替换实际图片路径 -->
 
