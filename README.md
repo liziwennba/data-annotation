@@ -160,7 +160,7 @@ Repeat previous steps for each new scene.
 
 ## 定位点使用规范
 以 `刚进门背对着门` 为例：
-[![Position Example](path/to/position-image.jpg) ](https://github.com/liziwennba/data-annotation/blob/main/figures/annotation_example_2.png)<!-- 替换实际图片路径 -->
+![Position Example](https://github.com/liziwennba/data-annotation/blob/main/figures/annotation_example_2.png)<!-- 替换实际图片路径 -->
 
 ### 正确问题示例
 1. **完整描述场景**  
