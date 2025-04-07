@@ -65,6 +65,10 @@ class MeshAnnotator(QMainWindow):
         self.view_annotation_button.clicked.connect(self.view_annotation)
         self.view_annotation_button.setEnabled(False)
         
+        self.edit_annotation_button = QPushButton("编辑选中标注")  # 新增编辑按钮
+        self.edit_annotation_button.clicked.connect(self.edit_annotation)
+        self.edit_annotation_button.setEnabled(False)
+        
         self.delete_annotation_button = QPushButton("删除选中标注")
         self.delete_annotation_button.clicked.connect(self.delete_annotation)
         self.delete_annotation_button.setEnabled(False)
@@ -75,6 +79,7 @@ class MeshAnnotator(QMainWindow):
         
         buttons_layout = QHBoxLayout()
         buttons_layout.addWidget(self.view_annotation_button)
+        buttons_layout.addWidget(self.edit_annotation_button)  # 将编辑按钮添加到布局
         buttons_layout.addWidget(self.delete_annotation_button)
         
         right_layout.addWidget(self.annotations_label)
@@ -134,15 +139,20 @@ class MeshAnnotator(QMainWindow):
         # 查找ply文件
         ply_files = [f for f in os.listdir(self.scene_dir) if f.endswith('.ply')]
         
-        # 优先查找同名ply文件或mesh.ply
+        # 修改优先级：首先查找"mesh_aligned_0.05.ply"文件
         mesh_file = None
-        for ply_file in ply_files:
-            if ply_file == f"{self.scene_name}.ply" or ply_file == "mesh.ply":
-                mesh_file = ply_file
-                break
         
-        # 如果没找到，使用第一个ply文件
-        if not mesh_file and ply_files:
+        # 第一优先级：mesh_aligned_0.05.ply
+        if "mesh_aligned_0.05.ply" in ply_files:
+            mesh_file = "mesh_aligned_0.05.ply"
+        # 第二优先级：与场景同名的ply文件
+        elif f"{self.scene_name}.ply" in ply_files:
+            mesh_file = f"{self.scene_name}.ply"
+        # 第三优先级：mesh.ply
+        elif "mesh.ply" in ply_files:
+            mesh_file = "mesh.ply"
+        # 如果都没找到，使用第一个ply文件
+        elif ply_files:
             mesh_file = ply_files[0]
         
         if mesh_file:
@@ -224,6 +234,7 @@ class MeshAnnotator(QMainWindow):
         """处理标注列表选择事件"""
         self.current_annotation_index = item.data(Qt.UserRole)
         self.view_annotation_button.setEnabled(True)
+        self.edit_annotation_button.setEnabled(True)  # 启用编辑按钮
         self.delete_annotation_button.setEnabled(True)
             
     def visualize_scene(self):
@@ -440,7 +451,53 @@ class MeshAnnotator(QMainWindow):
         
         # 可视化标注的实例
         self.visualize_selected_instances(object_ids)
+    
+    def edit_annotation(self):
+        """编辑选中的标注"""
+        if self.current_annotation_index < 0 or self.current_annotation_index >= len(self.annotations):
+            return
         
+        annotation = self.annotations[self.current_annotation_index]
+        current_description = annotation["description"]
+        object_ids = annotation["object_ids"]
+        
+        # 创建编辑对话框
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle("编辑标注")
+        dialog.setLabelText("编辑描述:")
+        dialog.setTextValue(current_description)
+        dialog.resize(400, 200)  # 设置对话框大小
+        
+        if dialog.exec_():
+            new_description = dialog.textValue().strip()
+            
+            if new_description and new_description != current_description:
+                # 更新标注信息
+                annotation["description"] = new_description
+                
+                # 更新完整文本
+                new_full_text = new_description
+                for obj_id in object_ids:
+                    new_full_text += f" [{obj_id}]"
+                annotation["full_text"] = new_full_text
+                
+                # 更新标注列表
+                self.update_annotations_list()
+                self.status_label.setText(f"状态: 已更新标注 #{self.current_annotation_index + 1}")
+                
+                # 显示编辑后的标注
+                QMessageBox.information(self, "编辑成功", 
+                                      f"已更新标注:\n\n"
+                                      f"新描述: {new_description}\n\n"
+                                      f"实例ID: {object_ids}\n\n"
+                                      f"新完整文本: {new_full_text}")
+            elif not new_description:
+                QMessageBox.warning(self, "编辑错误", "描述不能为空")
+            else:
+                self.status_label.setText("状态: 描述未变更，标注保持不变")
+        else:
+            self.status_label.setText("状态: 已取消编辑标注")
+            
     def delete_annotation(self):
         """删除选中的标注"""
         if self.current_annotation_index < 0 or self.current_annotation_index >= len(self.annotations):
@@ -455,6 +512,7 @@ class MeshAnnotator(QMainWindow):
             self.update_annotations_list()
             self.current_annotation_index = -1
             self.view_annotation_button.setEnabled(False)
+            self.edit_annotation_button.setEnabled(False)  # 禁用编辑按钮
             self.delete_annotation_button.setEnabled(False)
             self.status_label.setText("状态: 已删除标注")
             
