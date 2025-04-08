@@ -65,6 +65,10 @@ class MeshAnnotator(QMainWindow):
         self.view_annotation_button.clicked.connect(self.view_annotation)
         self.view_annotation_button.setEnabled(False)
         
+        self.edit_annotation_button = QPushButton("编辑选中标注")  # 添加编辑按钮
+        self.edit_annotation_button.clicked.connect(self.edit_annotation)
+        self.edit_annotation_button.setEnabled(False)
+        
         self.delete_annotation_button = QPushButton("删除选中标注")
         self.delete_annotation_button.clicked.connect(self.delete_annotation)
         self.delete_annotation_button.setEnabled(False)
@@ -75,6 +79,7 @@ class MeshAnnotator(QMainWindow):
         
         buttons_layout = QHBoxLayout()
         buttons_layout.addWidget(self.view_annotation_button)
+        buttons_layout.addWidget(self.edit_annotation_button)  # 添加编辑按钮到布局
         buttons_layout.addWidget(self.delete_annotation_button)
         
         right_layout.addWidget(self.annotations_label)
@@ -134,15 +139,20 @@ class MeshAnnotator(QMainWindow):
         # 查找ply文件
         ply_files = [f for f in os.listdir(self.scene_dir) if f.endswith('.ply')]
         
-        # 优先查找同名ply文件或mesh.ply
+        # 修改优先级：首先查找"mesh_aligned_0.05.ply"文件
         mesh_file = None
-        for ply_file in ply_files:
-            if ply_file == f"{self.scene_name}.ply" or ply_file == "mesh.ply":
-                mesh_file = ply_file
-                break
         
-        # 如果没找到，使用第一个ply文件
-        if not mesh_file and ply_files:
+        # 第一优先级：mesh_aligned_0.05.ply
+        if "mesh_aligned_0.05.ply" in ply_files:
+            mesh_file = "mesh_aligned_0.05.ply"
+        # 第二优先级：与场景同名的ply文件
+        elif f"{self.scene_name}.ply" in ply_files:
+            mesh_file = f"{self.scene_name}.ply"
+        # 第三优先级：mesh.ply
+        elif "mesh.ply" in ply_files:
+            mesh_file = "mesh.ply"
+        # 如果都没找到，使用第一个ply文件
+        elif ply_files:
             mesh_file = ply_files[0]
         
         if mesh_file:
@@ -214,6 +224,8 @@ class MeshAnnotator(QMainWindow):
             object_ids = annotation["object_ids"]
             distance = annotation["distance_m"]
             item_text = f"{i+1}. {description[:30]}... [实例ID: {object_ids}, 距离: {distance:.4f} 米]"
+            if len(description) <= 30:
+                item_text = f"{i+1}. {description} [实例ID: {object_ids}, 距离: {distance:.4f} 米]"
             
             item = QListWidgetItem(item_text)
             item.setData(Qt.UserRole, i)  # 存储索引便于后续访问
@@ -223,6 +235,7 @@ class MeshAnnotator(QMainWindow):
         """处理标注列表选择事件"""
         self.current_annotation_index = item.data(Qt.UserRole)
         self.view_annotation_button.setEnabled(True)
+        self.edit_annotation_button.setEnabled(True)  # 启用编辑按钮
         self.delete_annotation_button.setEnabled(True)
             
     def visualize_scene(self):
@@ -262,6 +275,7 @@ class MeshAnnotator(QMainWindow):
         except Exception as e:
             self.status_label.setText(f"状态: 可视化失败: {str(e)}")
             QMessageBox.warning(self, "可视化错误", f"无法可视化场景: {str(e)}")
+
     def visualize_updated_mesh(self):
         """可视化更新后的mesh，包括颜色变化"""
         try:
@@ -283,6 +297,7 @@ class MeshAnnotator(QMainWindow):
         except Exception as e:
             self.status_label.setText(f"状态: 可视化更新后的mesh出错: {str(e)}")
             QMessageBox.warning(self, "可视化错误", f"无法可视化更新后的mesh: {str(e)}")    
+
     def visualize_highlighted_mesh(self, highlighted_mesh):
         """可视化高亮后的mesh副本"""
         try:
@@ -304,6 +319,7 @@ class MeshAnnotator(QMainWindow):
         except Exception as e:
             self.status_label.setText(f"状态: 可视化高亮后的mesh出错: {str(e)}")
             QMessageBox.warning(self, "可视化错误", f"无法可视化高亮后的mesh: {str(e)}")
+
     def add_description(self):
         """添加描述并启动点选模式"""
         description = self.description_input.toPlainText().strip()
@@ -459,20 +475,7 @@ class MeshAnnotator(QMainWindow):
             highlighted_mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
             
             # 可视化
-            coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5)
-            vis = o3d.visualization.Visualizer()
-            vis.create_window(window_name=f"选中的实例 - {len(object_ids)}个", width=1024, height=768)
-            vis.add_geometry(highlighted_mesh)
-            vis.add_geometry(coordinate_frame)
-            
-            # 设置为白色背景
-            opt = vis.get_render_option()
-            opt.background_color = np.array([1.0, 1.0, 1.0])  # 白色背景
-            
-            vis.run()
-            vis.destroy_window()
-            
-            self.status_label.setText(f"状态: 已可视化 {len(object_ids)} 个选中实例")
+            self.visualize_highlighted_mesh(highlighted_mesh)
             
         except Exception as e:
             self.status_label.setText(f"状态: 可视化选中实例时出错: {str(e)}")
@@ -484,16 +487,52 @@ class MeshAnnotator(QMainWindow):
         
         annotation = self.annotations[self.current_annotation_index]
         object_ids = annotation["object_ids"]
+        distance = annotation["distance_m"]
+        description = annotation["description"]
         
         # 显示标注详情
         QMessageBox.information(self, "标注详情", 
-                              f"描述: {annotation['description']}\n\n"
+                              f"描述: {description or '(空)'}\n\n"
                               f"实例ID: {object_ids}\n\n"
-                              f"完整文本: {annotation['full_text']}")
+                              f"距离: {distance:.4f} 米")
         
         # 可视化标注的实例
         self.visualize_selected_instances(object_ids)
+    
+    def edit_annotation(self):
+        """编辑选中的标注"""
+        if self.current_annotation_index < 0 or self.current_annotation_index >= len(self.annotations):
+            return
         
+        annotation = self.annotations[self.current_annotation_index]
+        current_description = annotation.get("description", "")
+        
+        # 创建编辑对话框
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle("编辑标注")
+        dialog.setLabelText("编辑描述:")
+        dialog.setTextValue(current_description)
+        dialog.resize(400, 200)  # 设置对话框大小
+        
+        if dialog.exec_():
+            new_description = dialog.textValue().strip()
+            
+            # 更新标注信息（即使描述为空也允许保存）
+            annotation["description"] = new_description
+            
+            # 更新标注列表
+            self.update_annotations_list()
+            self.status_label.setText(f"状态: 已更新标注 #{self.current_annotation_index + 1}")
+            
+            # 显示编辑后的标注
+            QMessageBox.information(self, "编辑成功", 
+                                  f"已更新标注:\n\n"
+                                  f"新描述: {new_description or '(空)'}\n\n"
+                                  f"实例ID: {annotation['object_ids']}\n\n"
+                                  f"距离: {annotation['distance_m']:.4f} 米")
+        else:
+            self.status_label.setText("状态: 已取消编辑标注")
+            
     def delete_annotation(self):
         """删除选中的标注"""
         if self.current_annotation_index < 0 or self.current_annotation_index >= len(self.annotations):
@@ -508,6 +547,7 @@ class MeshAnnotator(QMainWindow):
             self.update_annotations_list()
             self.current_annotation_index = -1
             self.view_annotation_button.setEnabled(False)
+            self.edit_annotation_button.setEnabled(False)
             self.delete_annotation_button.setEnabled(False)
             self.status_label.setText("状态: 已删除标注")
             
