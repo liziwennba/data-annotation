@@ -12,6 +12,8 @@
 
 ```bash
 pip install open3d==0.18.0 pyqt5 numpy
+or
+pip install open3d==0.19.0 pyqt5 numpy
 ```
 
 ### 2. 启动软件 Launch the tool
