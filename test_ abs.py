@@ -115,6 +115,9 @@ class MeshAnnotator(QMainWindow):
         # 点选的物体ID
         self.selected_object_ids = []
         
+        # 跟踪标注是否已修改
+        self.annotations_modified = False
+        
     def browse_scene_directory(self):
         """浏览并选择场景目录"""
         dir_path = QFileDialog.getExistingDirectory(self, "选择场景目录", "")
@@ -210,6 +213,9 @@ class MeshAnnotator(QMainWindow):
         else:
             self.annotations = []
             self.status_label.setText("状态: 未找到现有标注文件，将创建新文件")
+        
+        # 重置修改标志
+        self.annotations_modified = False
         
         # 启用可视化和标注按钮
         self.visualize_button.setEnabled(True)
@@ -440,6 +446,7 @@ class MeshAnnotator(QMainWindow):
                 self.update_annotations_list()
                 self.description_input.clear()
                 self.status_label.setText(f"状态: 已添加标注，选中了实例 {instance_ids}，距离 {distance:.4f} 米")
+                self.annotations_modified = True  # 标记标注已修改
             else:
                 self.status_label.setText("状态: 已取消添加标注")
                 
@@ -523,6 +530,7 @@ class MeshAnnotator(QMainWindow):
             # 更新标注列表
             self.update_annotations_list()
             self.status_label.setText(f"状态: 已更新标注 #{self.current_annotation_index + 1}")
+            self.annotations_modified = True  # 标记标注已修改
             
             # 显示编辑后的标注
             QMessageBox.information(self, "编辑成功", 
@@ -550,6 +558,7 @@ class MeshAnnotator(QMainWindow):
             self.edit_annotation_button.setEnabled(False)
             self.delete_annotation_button.setEnabled(False)
             self.status_label.setText("状态: 已删除标注")
+            self.annotations_modified = True  # 标记标注已修改
             
     def save_annotations(self):
         """保存所有标注"""
@@ -566,10 +575,29 @@ class MeshAnnotator(QMainWindow):
             
             self.status_label.setText(f"状态: 已保存 {len(self.annotations)} 条标注到 {os.path.basename(self.annotations_file_path)}")
             QMessageBox.information(self, "保存成功", f"已保存 {len(self.annotations)} 条标注到\n{self.annotations_file_path}")
+            self.annotations_modified = False  # 重置修改标志
             
         except Exception as e:
             self.status_label.setText(f"状态: 保存标注失败: {str(e)}")
             QMessageBox.warning(self, "保存错误", f"无法保存标注: {str(e)}")
+    
+    def closeEvent(self, event):
+        """重写关闭事件，在关闭前询问是否保存标注"""
+        if self.annotations and self.annotations_modified:
+            reply = QMessageBox.question(self, '保存标注', 
+                                        '标注已修改但尚未保存。\n是否在退出前保存标注？',
+                                        QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, 
+                                        QMessageBox.Yes)
+            
+            if reply == QMessageBox.Yes:
+                self.save_annotations()
+                event.accept()
+            elif reply == QMessageBox.No:
+                event.accept()
+            else:
+                event.ignore()  # 取消关闭
+        else:
+            event.accept()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
