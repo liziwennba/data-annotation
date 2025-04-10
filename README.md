@@ -337,7 +337,7 @@ This tool is intended for academic use only. Please cite or acknowledge the auth
 
 ## 🙌 Acknowledgments
 
-- Developed by [MBZUAI / Ziwen Li, Jiaxin Huang, HanLve Zhang]
+- Developed by [MBZUAI / Ziwen Li, Jiaxin Huang, HanLue Zhang]
 - Built using [Open3D](http://www.open3d.org/) and [PyQt5](https://pypi.org/project/PyQt5/)
 - Dataset: [ScanNet++](https://kaldir.vc.in.tum.de/scannetpp/)
 
