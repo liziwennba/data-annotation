@@ -6,9 +6,42 @@ import numpy as np
 import time
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
                             QWidget, QPushButton, QFileDialog, QLabel, QTextEdit, 
-                            QListWidget, QMessageBox, QListWidgetItem, QInputDialog)
+                            QListWidget, QMessageBox, QListWidgetItem, QInputDialog,
+                            QDialog)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
+
+# Helper class for camera view description input
+class CameraViewDescriptionDialog(QDialog):
+    def __init__(self, parent=None, existing_description=""):
+        super().__init__(parent)
+        self.setWindowTitle("相机视角描述")
+        self.setMinimumWidth(400)
+        
+        layout = QVBoxLayout()
+        
+        self.label = QLabel("请输入对该相机视角的描述:")
+        layout.addWidget(self.label)
+        
+        self.text_edit = QTextEdit()
+        self.text_edit.setPlaceholderText("例如：俯视角度、正面视图、特写视图等...")
+        self.text_edit.setText(existing_description)
+        layout.addWidget(self.text_edit)
+        
+        buttons_layout = QHBoxLayout()
+        self.ok_button = QPushButton("确定")
+        self.ok_button.clicked.connect(self.accept)
+        self.cancel_button = QPushButton("取消")
+        self.cancel_button.clicked.connect(self.reject)
+        
+        buttons_layout.addWidget(self.ok_button)
+        buttons_layout.addWidget(self.cancel_button)
+        
+        layout.addLayout(buttons_layout)
+        self.setLayout(layout)
+    
+    def get_description(self):
+        return self.text_edit.toPlainText().strip()
 
 def dict_to_camera_params(param_dict):
     """Convert a dictionary to Open3D PinholeCameraParameters"""
@@ -88,14 +121,18 @@ class MeshAnnotator(QMainWindow):
         self.camera_mode_button.clicked.connect(self.toggle_camera_mode)
         self.camera_mode_button.setEnabled(False)
         
-        self.save_camera_button = QPushButton("设置/查看标注相机视角")
+        self.save_camera_button = QPushButton("设置标注相机视角")
         self.save_camera_button.clicked.connect(self.save_camera_view)
         self.save_camera_button.setEnabled(False)
+        
+        self.view_current_camera_button = QPushButton("查看当前相机视角和描述")  # 新按钮
+        self.view_current_camera_button.clicked.connect(self.view_current_camera)
+        self.view_current_camera_button.setEnabled(False)
         
         camera_layout = QHBoxLayout()
         camera_layout.addWidget(self.camera_mode_button)
         camera_layout.addWidget(self.save_camera_button)
-        
+        camera_layout.addWidget(self.view_current_camera_button)  # 替换原来的修改按钮
         left_layout.addLayout(camera_layout)
         
         # 右侧 - 标注列表
@@ -108,7 +145,7 @@ class MeshAnnotator(QMainWindow):
         self.view_annotation_button.clicked.connect(self.view_annotation)
         self.view_annotation_button.setEnabled(False)
         
-        self.edit_annotation_button = QPushButton("编辑选中标注")  # 新增编辑按钮
+        self.edit_annotation_button = QPushButton("编辑选中标注")
         self.edit_annotation_button.clicked.connect(self.edit_annotation)
         self.edit_annotation_button.setEnabled(False)
         
@@ -116,18 +153,28 @@ class MeshAnnotator(QMainWindow):
         self.delete_annotation_button.clicked.connect(self.delete_annotation)
         self.delete_annotation_button.setEnabled(False)
         
+        # 将"修改标注相机视角"按钮添加到标注操作区
+        self.change_camera_button = QPushButton("修改标注相机视角")
+        self.change_camera_button.clicked.connect(self.change_camera_view)
+        self.change_camera_button.setEnabled(False)
+        
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addWidget(self.view_annotation_button)
+        buttons_layout.addWidget(self.edit_annotation_button)
+        buttons_layout.addWidget(self.delete_annotation_button)
+        
+        # 创建一个新的布局来放置"修改标注相机视角"按钮
+        camera_annotation_layout = QHBoxLayout()
+        camera_annotation_layout.addWidget(self.change_camera_button)
+        
         self.save_annotations_button = QPushButton("保存所有标注")
         self.save_annotations_button.clicked.connect(self.save_annotations)
         self.save_annotations_button.setEnabled(False)
         
-        buttons_layout = QHBoxLayout()
-        buttons_layout.addWidget(self.view_annotation_button)
-        buttons_layout.addWidget(self.edit_annotation_button)  # 将编辑按钮添加到布局
-        buttons_layout.addWidget(self.delete_annotation_button)
-        
         right_layout.addWidget(self.annotations_label)
         right_layout.addWidget(self.annotations_list)
         right_layout.addLayout(buttons_layout)
+        right_layout.addLayout(camera_annotation_layout)  # 添加相机按钮布局
         right_layout.addWidget(self.save_annotations_button)
         
         # 将左右区域添加到中部布局
@@ -148,6 +195,7 @@ class MeshAnnotator(QMainWindow):
         self.mesh = None
         self.instance_mask = None
         self.camera_pose = None
+        self.camera_view_description = ""  # 存储相机视角描述
         self.present_params = None
         
         # 存储标注数据
@@ -176,26 +224,126 @@ class MeshAnnotator(QMainWindow):
         if self.camera_mode_enabled:
             self.camera_mode_button.setText("关闭相机保存模式")
             self.save_camera_button.setEnabled(True)
+            self.view_current_camera_button.setEnabled(True)
+            
+            # 只有选中标注时才启用修改标注相机视角按钮
+            if self.current_annotation_index >= 0:
+                self.change_camera_button.setEnabled(True)
+                
             self.status_label.setText("状态: 相机保存模式已启用")
         else:
             self.camera_mode_button.setText("启用相机保存模式")
             self.save_camera_button.setEnabled(False)
+            self.view_current_camera_button.setEnabled(False)
+            self.change_camera_button.setEnabled(False)
             self.status_label.setText("状态: 相机保存模式已关闭")
-            
-    def save_camera_view(self):
-        """设置或查看相机视角"""
+    
+    def view_current_camera(self):
+        """查看当前设置的全局相机视角和描述"""
         if not self.camera_mode_enabled:
             QMessageBox.warning(self, "模式错误", "请先启用相机保存模式")
             return
-            
-        #if self.current_annotation_index < 0 or self.current_annotation_index >= len(self.annotations):
-        #    QMessageBox.warning(self, "选择错误", "请先选择一个标注")
-        #    return
-            
+        
+        # 只检查是否有相机参数，不要求有描述
+        if not self.camera_pose and not self.present_params:
+            QMessageBox.information(self, "相机视角", "当前未设置全局相机视角。\n\n请使用'设置标注相机视角'按钮设置。")
+            return
+        
         if not self.mesh_path:
             QMessageBox.warning(self, "文件错误", "未找到mesh文件")
             return
             
+        try:
+            # 准备视角描述文本
+            view_description = "未命名视角"
+            if self.camera_view_description:
+                view_description = self.camera_view_description
+            
+            # 显示基本信息
+            info_text = f"当前全局相机视角: {view_description}\n\n"
+            info_text += "此视角将用于新创建的标注。\n\n"
+            info_text += "即将在3D场景中展示此视角。"
+            
+            QMessageBox.information(self, "当前相机视角", info_text)
+            
+            # 加载mesh，如果尚未加载
+            if not self.mesh:
+                self.mesh = o3d.io.read_triangle_mesh(self.mesh_path)
+                
+                # 如果mesh没有顶点颜色，添加默认颜色
+                if not self.mesh.has_vertex_colors():
+                    vertices = np.asarray(self.mesh.vertices)
+                    colors = np.ones((len(vertices), 3)) * 0.7  # 灰色
+                    self.mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
+            
+            # 创建mesh的副本，用于可视化
+            vis_mesh = o3d.geometry.TriangleMesh(self.mesh)
+            
+            # 设置窗口尺寸
+            window_width = 1024
+            window_height = 768
+            
+            # 如果有保存的相机参数，使用其窗口尺寸
+            if self.camera_pose and "intrinsic" in self.camera_pose:
+                window_width = self.camera_pose["intrinsic"]["width"]
+                window_height = self.camera_pose["intrinsic"]["height"]
+            elif self.present_params:
+                window_width = self.present_params.intrinsic.width
+                window_height = self.present_params.intrinsic.height
+            
+            # 创建可视化窗口
+            vis = o3d.visualization.Visualizer()
+            vis.create_window(window_name=f"当前相机视角 - {view_description}", 
+                            width=window_width, height=window_height)
+            vis.add_geometry(vis_mesh)
+            
+            # 添加坐标系
+            coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5)
+            vis.add_geometry(coordinate_frame)
+            
+            # 设置渲染选项
+            opt = vis.get_render_option()
+            opt.background_color = np.array([1.0, 1.0, 1.0])  # 白色背景
+            
+            # 应用相机参数
+            view_control = vis.get_view_control()
+            
+            # 优先使用complete_params对象
+            if self.present_params:
+                try:
+                    view_control.convert_from_pinhole_camera_parameters(self.present_params, True)
+                    self.status_label.setText(f"状态: 正在显示相机视角 '{view_description}'")
+                except Exception as e:
+                    self.status_label.setText(f"状态: 应用相机视角出错: {str(e)}")
+            # 备用：使用camera_pose字典
+            elif self.camera_pose:
+                try:
+                    params = dict_to_camera_params(self.camera_pose)
+                    if params:
+                        view_control.convert_from_pinhole_camera_parameters(params, True)
+                        self.status_label.setText(f"状态: 正在显示相机视角 '{view_description}'")
+                except Exception as e:
+                    self.status_label.setText(f"状态: 应用相机视角出错: {str(e)}")
+            
+            # 运行可视化器
+            vis.run()
+            vis.destroy_window()
+            
+            self.status_label.setText(f"状态: 已查看相机视角 '{view_description}'")
+            
+        except Exception as e:
+            self.status_label.setText(f"状态: 查看相机视角时出错: {str(e)}")
+            QMessageBox.warning(self, "错误", f"查看相机视角时出错: {str(e)}")
+    def save_camera_view(self):
+        """设置通用相机视角，可以用于后续标注"""
+        if not self.camera_mode_enabled:
+            QMessageBox.warning(self, "模式错误", "请先启用相机保存模式")
+            return
+                
+        if not self.mesh_path:
+            QMessageBox.warning(self, "文件错误", "未找到mesh文件")
+            return
+                
         try:
             # 加载mesh，如果尚未加载
             if not self.mesh:
@@ -210,36 +358,8 @@ class MeshAnnotator(QMainWindow):
             # 创建mesh的副本，用于可视化
             vis_mesh = o3d.geometry.TriangleMesh(self.mesh)
             
-            ## 获取当前标注
-            has_camera_params = False
-            if self.current_annotation_index > 0 and self.current_annotation_index < len(self.annotations):
-                annotation = self.annotations[self.current_annotation_index]
-                object_ids = annotation["object_ids"]
-                # 检查标注中是否已有相机参数
-                has_camera_params = "camera_params" in annotation and annotation["camera_params"]
-                #print(annotation["camera_params"])
-                #print(has_camera_params)
-                # 高亮显示标注的物体
-                if self.instance_mask is not None and len(object_ids) > 0:
-                    # 获取顶点和颜色
-                    vertices = np.asarray(vis_mesh.vertices)
-                    colors = np.asarray(vis_mesh.vertex_colors).copy()
-                    
-                    # 计算高亮点
-                    highlight_mask = np.zeros(len(self.instance_mask), dtype=bool)
-                    for obj_id in object_ids:
-                        highlight_mask |= (self.instance_mask == obj_id)
-                    
-                    # 将高亮点设置为绿色
-                    colors[highlight_mask] = [0, 1, 0]  # 绿色
-                    
-                    # 更新mesh颜色
-                    vis_mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
-            
             # 设置窗口标题
-            window_title = f"设置相机视角 - 标注 #{self.current_annotation_index + 1}"
-            
-            
+            window_title = f"设置通用相机视角 - 将用于新标注"
             
             # 创建可视化窗口
             window_width = 1024
@@ -256,36 +376,17 @@ class MeshAnnotator(QMainWindow):
             opt = vis.get_render_option()
             opt.background_color = np.array([1.0, 1.0, 1.0])  # 白色背景
             
-            # 如果标注中已有相机参数，则恢复视角
+            # 如果已有之前设置的相机参数，则应用它
             view_control = vis.get_view_control()
-            #print(has_camera_params)
-            if has_camera_params:
+            
+            if self.present_params:
                 try:
-                    # 恢复保存的相机参数
-                    params_dict = annotation["camera_params"]
-                    #vis_params = annotation["vis_params"]
-                    vis_params = dict_to_camera_params(params_dict)
-                    # 设置外参矩阵 - 使用view_control的底层方法
-                    extrinsic = np.array(params_dict["extrinsic"])
-                    view_control.convert_from_pinhole_camera_parameters(vis_params,True)
-                    
-                    self.status_label.setText("状态: 已恢复保存的相机视角")
+                    # 恢复上次使用的相机参数
+                    view_control.convert_from_pinhole_camera_parameters(self.present_params, True)
+                    self.status_label.setText("状态: 已恢复上次的相机视角")
                 except Exception as e:
                     self.status_label.setText(f"状态: 恢复相机视角出错: {str(e)}")
-            elif self.present_params:
-                try:
-                    # 恢复保存的相机参数
-                    #params_dict = annotation["camera_params"]
-                    #vis_params = annotation["vis_params"]
-                    vis_params = self.present_params
-                    # 设置外参矩阵 - 使用view_control的底层方法
-                    #extrinsic = np.array(params_dict["extrinsic"])
-                    view_control.convert_from_pinhole_camera_parameters(vis_params,True)
-                    
-                    self.status_label.setText("状态: 已恢复保存的相机视角")
-                except Exception as e:
-                    self.status_label.setText(f"状态: 恢复相机视角出错: {str(e)}")
-            #print(has_camera_params)
+            
             # 运行可视化器
             vis.run()
             
@@ -310,26 +411,205 @@ class MeshAnnotator(QMainWindow):
             camera_position = -np.array([extrinsic[0, 3], extrinsic[1, 3], extrinsic[2, 3]])
             camera_direction = -np.array([extrinsic[2, 0], extrinsic[2, 1], extrinsic[2, 2]])
             up_vector = np.array([extrinsic[1, 0], extrinsic[1, 1], extrinsic[1, 2]])
-            self.camera_pose = {
-                "extrinsic": extrinsic.tolist(),
-                "intrinsic": intrinsic,
-                "position": camera_position.tolist(),
-                "direction": camera_direction.tolist(),
-                "up": up_vector.tolist()
-            }
-            self.present_params = final_params
-            # 保存相机参数到标注中
-            if self.current_annotation_index > 0 and self.current_annotation_index < len(self.annotations):
-                annotation["camera_params"] = self.camera_pose
-                self.annotations_modified = True  # 标记标注已修改
-            #    annotation["vis_params"] = self.present_params
-            # 更新界面
-            self.status_label.setText("状态: 已保存相机视角到当前标注")
-            QMessageBox.information(self, "保存成功", "已保存相机视角到当前标注")
+            
+            # 弹出对话框获取相机视角描述
+            dialog = CameraViewDescriptionDialog(self, self.camera_view_description)
+            if dialog.exec_() == QDialog.Accepted:
+                camera_view_description = dialog.get_description()
+                
+                # 保存相机参数和描述到全局变量
+                self.camera_pose = {
+                    "extrinsic": extrinsic.tolist(),
+                    "intrinsic": intrinsic,
+                    "position": camera_position.tolist(),
+                    "direction": camera_direction.tolist(),
+                    "up": up_vector.tolist(),
+                    "view_description": camera_view_description
+                }
+                self.camera_view_description = camera_view_description
+                self.present_params = final_params
+                
+                # 启用查看当前相机视角按钮
+                self.view_current_camera_button.setEnabled(True)
+                
+                self.status_label.setText(f"状态: 已设置通用相机视角 '{camera_view_description}'，将用于新标注")
+                QMessageBox.information(self, "设置成功", f"已设置通用相机视角：'{camera_view_description}'\n\n此视角将用于新创建的标注。")
+            else:
+                self.status_label.setText("状态: 已取消设置相机视角")
             
         except Exception as e:
             self.status_label.setText(f"状态: 设置相机视角时出错: {str(e)}")
             QMessageBox.warning(self, "错误", f"设置相机视角时出错: {str(e)}")
+    
+    def change_camera_view(self):
+        """修改当前选中标注的相机视角"""
+        if not self.camera_mode_enabled:
+            QMessageBox.warning(self, "模式错误", "请先启用相机保存模式")
+            return
+        
+        if self.current_annotation_index < 0 or self.current_annotation_index >= len(self.annotations):
+            QMessageBox.warning(self, "选择错误", "请先选择一个标注")
+            return
+            
+        if not self.mesh_path:
+            QMessageBox.warning(self, "文件错误", "未找到mesh文件")
+            return
+            
+        try:
+            # 获取当前标注
+            annotation = self.annotations[self.current_annotation_index]
+            object_ids = annotation["object_ids"]
+            
+            # 检查标注中是否已有相机参数
+            has_camera_params = "camera_params" in annotation and annotation["camera_params"]
+            existing_camera_description = ""
+            
+            # 获取现有的相机视角描述（如果有）
+            if has_camera_params and "view_description" in annotation["camera_params"]:
+                existing_camera_description = annotation["camera_params"]["view_description"]
+            
+            # 加载mesh，如果尚未加载
+            if not self.mesh:
+                self.mesh = o3d.io.read_triangle_mesh(self.mesh_path)
+                
+                # 如果mesh没有顶点颜色，添加默认颜色
+                if not self.mesh.has_vertex_colors():
+                    vertices = np.asarray(self.mesh.vertices)
+                    colors = np.ones((len(vertices), 3)) * 0.7  # 灰色
+                    self.mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
+            
+            # 创建mesh的副本，用于可视化
+            vis_mesh = o3d.geometry.TriangleMesh(self.mesh)
+            
+            # 高亮显示标注的物体
+            if self.instance_mask is not None and len(object_ids) > 0:
+                # 获取顶点和颜色
+                vertices = np.asarray(vis_mesh.vertices)
+                colors = np.asarray(vis_mesh.vertex_colors).copy()
+                
+                # 计算高亮点
+                highlight_mask = np.zeros(len(self.instance_mask), dtype=bool)
+                for obj_id in object_ids:
+                    highlight_mask |= (self.instance_mask == obj_id)
+                
+                # 将高亮点设置为绿色
+                colors[highlight_mask] = [0, 1, 0]  # 绿色
+                
+                # 更新mesh颜色
+                vis_mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
+            
+            # 设置窗口尺寸
+            window_width = 1024
+            window_height = 768
+            
+            # 如果已有相机参数，获取窗口尺寸
+            if has_camera_params and "intrinsic" in annotation["camera_params"]:
+                window_width = annotation["camera_params"]["intrinsic"]["width"]
+                window_height = annotation["camera_params"]["intrinsic"]["height"]
+            # 否则，如果有全局参数，使用全局参数的窗口尺寸
+            elif self.camera_pose and "intrinsic" in self.camera_pose:
+                window_width = self.camera_pose["intrinsic"]["width"]
+                window_height = self.camera_pose["intrinsic"]["height"]
+            
+            # 设置窗口标题
+            window_title = f"修改相机视角 - 标注 #{self.current_annotation_index + 1}"
+            
+            # 创建可视化窗口
+            vis = o3d.visualization.Visualizer()
+            vis.create_window(window_name=window_title, width=window_width, height=window_height)
+            vis.add_geometry(vis_mesh)
+            
+            # 添加坐标系
+            coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5)
+            vis.add_geometry(coordinate_frame)
+            
+            # 设置渲染选项
+            opt = vis.get_render_option()
+            opt.background_color = np.array([1.0, 1.0, 1.0])  # 白色背景
+            
+            # 设置相机视角
+            view_control = vis.get_view_control()
+            
+            # 优先应用标注中已有的相机参数
+            if has_camera_params:
+                try:
+                    params_dict = annotation["camera_params"]
+                    vis_params = dict_to_camera_params(params_dict)
+                    view_control.convert_from_pinhole_camera_parameters(vis_params, True)
+                    self.status_label.setText("状态: 已恢复标注的相机视角")
+                except Exception as e:
+                    self.status_label.setText(f"状态: 恢复相机视角出错: {str(e)}")
+            # 如果标注没有相机参数但有全局设置的相机参数，则应用全局参数
+            elif self.present_params:
+                try:
+                    view_control.convert_from_pinhole_camera_parameters(self.present_params, True)
+                    self.status_label.setText("状态: 已应用当前全局相机视角")
+                except Exception as e:
+                    self.status_label.setText(f"状态: 应用相机视角出错: {str(e)}")
+            
+            # 运行可视化器
+            vis.run()
+            
+            # 获取最终的相机参数
+            final_params = view_control.convert_to_pinhole_camera_parameters()
+            
+            # 提取相机外参和内参
+            extrinsic = final_params.extrinsic
+            intrinsic = {
+                "width": final_params.intrinsic.width,
+                "height": final_params.intrinsic.height,
+                "fx": final_params.intrinsic.get_focal_length()[0],
+                "fy": final_params.intrinsic.get_focal_length()[1],
+                "cx": final_params.intrinsic.get_principal_point()[0],
+                "cy": final_params.intrinsic.get_principal_point()[1]
+            }
+            
+            # 关闭可视化窗口
+            vis.destroy_window()
+            
+            # 从外参矩阵中提取相机位置和朝向
+            camera_position = -np.array([extrinsic[0, 3], extrinsic[1, 3], extrinsic[2, 3]])
+            camera_direction = -np.array([extrinsic[2, 0], extrinsic[2, 1], extrinsic[2, 2]])
+            up_vector = np.array([extrinsic[1, 0], extrinsic[1, 1], extrinsic[1, 2]])
+            
+            # 弹出对话框获取相机视角描述
+            dialog = CameraViewDescriptionDialog(self, existing_camera_description)
+            if dialog.exec_() == QDialog.Accepted:
+                camera_view_description = dialog.get_description()
+                
+                # 创建相机参数字典
+                camera_params = {
+                    "extrinsic": extrinsic.tolist(),
+                    "intrinsic": intrinsic,
+                    "position": camera_position.tolist(),
+                    "direction": camera_direction.tolist(),
+                    "up": up_vector.tolist(),
+                    "view_description": camera_view_description
+                }
+                
+                # 保存相机参数到当前标注
+                annotation["camera_params"] = camera_params
+                
+                # 同时更新全局变量以便后续使用
+                self.camera_pose = camera_params
+                self.camera_view_description = camera_view_description
+                self.present_params = final_params
+                
+                # 标记标注已修改
+                self.annotations_modified = True
+                
+                # 更新标注列表以显示新的描述
+                self.update_annotations_list()
+                
+                # 更新界面
+                self.status_label.setText(f"状态: 已更新标注 #{self.current_annotation_index + 1} 的相机视角")
+                QMessageBox.information(self, "更新成功", f"已更新标注的相机视角为：'{camera_view_description}'")
+            else:
+                self.status_label.setText("状态: 已取消修改相机视角")
+            
+        except Exception as e:
+            self.status_label.setText(f"状态: 修改相机视角时出错: {str(e)}")
+            QMessageBox.warning(self, "错误", f"修改相机视角时出错: {str(e)}")
             
     def browse_scene_directory(self):
         """浏览并选择场景目录"""
@@ -337,7 +617,7 @@ class MeshAnnotator(QMainWindow):
         
         if not dir_path:
             return
-        
+            
         # 如果已有修改的标注且未保存，先询问是否保存
         if self.annotations and self.annotations_modified:
             reply = QMessageBox.question(self, '保存标注', 
@@ -353,6 +633,11 @@ class MeshAnnotator(QMainWindow):
         self.scene_dir = dir_path
         self.scene_name = os.path.basename(dir_path)
         self.scene_path_label.setText(f"当前场景: {self.scene_name}")
+        
+        # 重置相机参数
+        self.camera_pose = None
+        self.camera_view_description = ""
+        self.present_params = None
         
         # 查找场景中的文件
         self.find_scene_files()
@@ -433,7 +718,7 @@ class MeshAnnotator(QMainWindow):
                 for annotation in self.annotations:
                     if "camera_params" not in annotation:
                         annotation["camera_params"] = {}
-                        #annotation["vis_params"] = {}
+                
                 self.update_annotations_list()
                 self.status_label.setText(f"状态: 已加载 {len(self.annotations)} 条标注")
             except Exception as e:
@@ -461,9 +746,22 @@ class MeshAnnotator(QMainWindow):
             num_objects = len(annotation["object_ids"])
             has_camera = "camera_params" in annotation and annotation["camera_params"]
             
-            item_text = f"{i+1}. {description[:30]}... [{num_objects}个实例]"
-            if len(description) <= 30:
-                item_text = f"{i+1}. {description} [{num_objects}个实例]"
+            # 检查是否有相机视角描述
+            camera_view_description = ""
+            if has_camera and "view_description" in annotation["camera_params"] and annotation["camera_params"]["view_description"]:
+                camera_view_description = annotation["camera_params"]["view_description"]
+            
+            # 构建显示文本
+            if camera_view_description:
+                item_text = f"{i+1}. [{camera_view_description}] {description[:30]}"
+                if len(description) > 30:
+                    item_text += "..."
+            else:
+                item_text = f"{i+1}. {description[:30]}"
+                if len(description) > 30:
+                    item_text += "..."
+            
+            item_text += f" [{num_objects}个实例]"
                 
             # 添加相机图标表示有相机参数
             if has_camera:
@@ -480,9 +778,9 @@ class MeshAnnotator(QMainWindow):
         self.edit_annotation_button.setEnabled(True)  # 启用编辑按钮
         self.delete_annotation_button.setEnabled(True)
         
-        # 如果相机保存模式启用，则启用保存相机按钮
+        # 如果相机保存模式启用，则启用相机按钮
         if self.camera_mode_enabled:
-            self.save_camera_button.setEnabled(True)
+            self.change_camera_button.setEnabled(True)
             
     def visualize_scene(self):
         """可视化场景模型"""
@@ -521,6 +819,7 @@ class MeshAnnotator(QMainWindow):
             # 保存默认视角参数，以备后用
             view_control = vis.get_view_control()
             self.default_camera_params = view_control.convert_to_pinhole_camera_parameters()
+            self.present_params = self.default_camera_params
             
             vis.destroy_window()
             
@@ -616,26 +915,39 @@ class MeshAnnotator(QMainWindow):
             
             # 将唯一实例ID添加到描述中
             self.selected_object_ids = list(unique_instance_ids)
-            annotated_description = description
+            
+            # 结合相机视角描述（如果有）
+            combined_description = description
+            camera_view_description = ""
+            
+            # 检查是否启用了相机模式且有相机视角
+            if self.camera_mode_enabled and self.camera_pose and "view_description" in self.camera_pose:
+                camera_view_description = self.camera_pose["view_description"]
+                
+                # 如果有相机视角描述，加到描述前面
+                if camera_view_description:
+                    combined_description = f"[{camera_view_description}] {description}"
+            
+            # 创建标注全文
+            annotated_description = combined_description
             for obj_id in self.selected_object_ids:
                 annotated_description += f" [{obj_id}]"
             
             # 创建新的标注项
-            if not self.camera_mode_enabled:
+            if not self.camera_mode_enabled or not self.camera_pose:
                 new_annotation = {
-                    "description": description,
+                    "description": description,  # 原始描述
                     "object_ids": self.selected_object_ids,
-                    "full_text": annotated_description,
-                    "camera_params": {},  # 初始化空的相机参数字段
-                    #"vis_params":{}
+                    "full_text": annotated_description,  # 完整文本包含相机视角描述
+                    "camera_params": {}  # 空的相机参数
                 }
             else:
+                # 如果启用了相机模式且有全局相机设置，则使用全局设置
                 new_annotation = {
-                    "description": description,
+                    "description": description,  # 原始描述
                     "object_ids": self.selected_object_ids,
-                    "full_text": annotated_description,
-                    "camera_params": self.camera_pose,  # 初始化空的相机参数字段
-                    #"vis_params":self.present_params
+                    "full_text": annotated_description,  # 完整文本包含相机视角描述
+                    "camera_params": self.camera_pose  # 使用全局相机设置
                 }
             
             # 确认添加
@@ -645,10 +957,10 @@ class MeshAnnotator(QMainWindow):
             
             if reply == QMessageBox.Yes:
                 self.annotations.append(new_annotation)
+                self.annotations_modified = True  # 标记标注已修改
                 self.update_annotations_list()
                 self.description_input.clear()
                 self.status_label.setText(f"状态: 已添加标注，选中了 {len(self.selected_object_ids)} 个实例")
-                self.annotations_modified = True  # 标记标注已修改
                 
                 # 可视化标注的实例
                 self.visualize_selected_instances(self.selected_object_ids)
@@ -659,7 +971,7 @@ class MeshAnnotator(QMainWindow):
             self.status_label.setText(f"状态: 点选过程中出错: {str(e)}")
             QMessageBox.warning(self, "点选错误", f"点选过程出错: {str(e)}")
     
-    def visualize_selected_instances(self, object_ids):
+    def visualize_selected_instances(self, object_ids, annotation=None):
         """可视化选中的实例"""
         if not self.mesh or not self.instance_mask.any():
             return
@@ -683,10 +995,42 @@ class MeshAnnotator(QMainWindow):
             # 更新mesh颜色
             highlighted_mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
             
+            # 设置默认窗口尺寸
+            window_width = 1024
+            window_height = 768
+            
+            # 检查是否有相机参数
+            has_camera_params = annotation and "camera_params" in annotation and annotation["camera_params"]
+            vis_params = None
+            camera_view_description = ""
+            
+            # 如果有相机参数，尝试应用
+            if has_camera_params:
+                # 获取窗口尺寸
+                if "intrinsic" in annotation["camera_params"]:
+                    window_width = annotation["camera_params"]["intrinsic"]["width"]
+                    window_height = annotation["camera_params"]["intrinsic"]["height"]
+                
+                # 获取相机描述
+                if "view_description" in annotation["camera_params"]:
+                    camera_view_description = annotation["camera_params"]["view_description"]
+                
+                # 创建相机参数
+                try:
+                    vis_params = dict_to_camera_params(annotation["camera_params"])
+                except Exception as e:
+                    print(f"创建相机参数失败: {str(e)}")
+            
             # 可视化
             coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5)
             vis = o3d.visualization.Visualizer()
-            vis.create_window(window_name=f"选中的实例 - {len(object_ids)}个", width=1024, height=768)
+            
+            # 设置窗口标题
+            window_title = f"选中的实例 - {len(object_ids)}个"
+            if camera_view_description:
+                window_title += f" - {camera_view_description}"
+            
+            vis.create_window(window_name=window_title, width=window_width, height=window_height)
             vis.add_geometry(highlighted_mesh)
             vis.add_geometry(coordinate_frame)
             
@@ -694,20 +1038,14 @@ class MeshAnnotator(QMainWindow):
             opt = vis.get_render_option()
             opt.background_color = np.array([1.0, 1.0, 1.0])  # 白色背景
             
-            # 如果当前处于相机保存模式，且当前选择的标注有相机参数，则恢复相机视角
-            if self.camera_mode_enabled and self.current_annotation_index >= 0 and self.current_annotation_index < len(self.annotations):
-                annotation = self.annotations[self.current_annotation_index]
-                if "camera_params" in annotation and annotation["camera_params"]:
-                    try:
-                        view_control = vis.get_view_control()
-                        params_dict = annotation["camera_params"]
-                        #vis_params = annotation["vis_params"]
-                        vis_params = dict_to_camera_params(params_dict)
-                        # 设置外参矩阵 - 使用view_control的底层方法
-                        #extrinsic = np.array(params_dict["extrinsic"])
-                        view_control.convert_from_pinhole_camera_parameters(vis_params,True)
-                    except Exception as e:
-                        print(f"恢复相机视角失败: {str(e)}")
+            # 如果有相机参数，应用它
+            if vis_params:
+                try:
+                    view_control = vis.get_view_control()
+                    view_control.convert_from_pinhole_camera_parameters(vis_params, True)
+                    self.status_label.setText(f"状态: 已应用相机视角 '{camera_view_description}'")
+                except Exception as e:
+                    print(f"应用相机视角失败: {str(e)}")
             
             vis.run()
             vis.destroy_window()
@@ -725,19 +1063,26 @@ class MeshAnnotator(QMainWindow):
         annotation = self.annotations[self.current_annotation_index]
         object_ids = annotation["object_ids"]
         
-        # 查看是否有相机参数
+        # 获取相机信息
         has_camera = "camera_params" in annotation and annotation["camera_params"]
-        camera_info = "包含相机视角参数" if has_camera else "无相机视角参数"
+        camera_info = "无相机视角参数"
+        camera_view_description = ""
+        
+        if has_camera:
+            camera_info = "包含相机视角参数"
+            if "view_description" in annotation["camera_params"] and annotation["camera_params"]["view_description"]:
+                camera_view_description = annotation["camera_params"]["view_description"]
+                camera_info += f" - '{camera_view_description}'"
         
         # 显示标注详情
         QMessageBox.information(self, "标注详情", 
-                              f"描述: {annotation['description']}\n\n"
-                              f"实例ID: {object_ids}\n\n"
-                              f"完整文本: {annotation['full_text']}\n\n"
-                              f"相机参数: {camera_info}")
+                            f"描述: {annotation['description']}\n\n"
+                            f"实例ID: {object_ids}\n\n"
+                            f"完整文本: {annotation['full_text']}\n\n"
+                            f"相机参数: {camera_info}")
         
         # 可视化标注的实例
-        self.visualize_selected_instances(object_ids)
+        self.visualize_selected_instances(object_ids, annotation)
     
     def edit_annotation(self):
         """编辑选中的标注"""
@@ -762,16 +1107,29 @@ class MeshAnnotator(QMainWindow):
                 # 更新标注信息
                 annotation["description"] = new_description
                 
+                # 获取相机视角描述（如果有）
+                camera_view_description = ""
+                if "camera_params" in annotation and annotation["camera_params"] and "view_description" in annotation["camera_params"]:
+                    camera_view_description = annotation["camera_params"]["view_description"]
+                
                 # 更新完整文本
                 new_full_text = new_description
+                # 如果有相机视角描述，加到描述前面
+                if camera_view_description:
+                    new_full_text = f"[{camera_view_description}] {new_description}"
+                
+                # 添加实例ID
                 for obj_id in object_ids:
                     new_full_text += f" [{obj_id}]"
+                
                 annotation["full_text"] = new_full_text
+                
+                # 标记标注已修改
+                self.annotations_modified = True
                 
                 # 更新标注列表
                 self.update_annotations_list()
                 self.status_label.setText(f"状态: 已更新标注 #{self.current_annotation_index + 1}")
-                self.annotations_modified = True  # 标记标注已修改
                 
                 # 显示编辑后的标注
                 QMessageBox.information(self, "编辑成功", 
@@ -797,14 +1155,17 @@ class MeshAnnotator(QMainWindow):
         
         if reply == QMessageBox.Yes:
             del self.annotations[self.current_annotation_index]
+            
+            # 标记标注已修改
+            self.annotations_modified = True
+            
             self.update_annotations_list()
             self.current_annotation_index = -1
             self.view_annotation_button.setEnabled(False)
             self.edit_annotation_button.setEnabled(False)  # 禁用编辑按钮
             self.delete_annotation_button.setEnabled(False)
-            self.save_camera_button.setEnabled(False)  # 禁用相机按钮
+            self.change_camera_button.setEnabled(False)  # 禁用修改相机按钮
             self.status_label.setText("状态: 已删除标注")
-            self.annotations_modified = True  # 标记标注已修改
             
     def save_annotations(self):
         """保存所有标注"""
@@ -821,12 +1182,14 @@ class MeshAnnotator(QMainWindow):
             
             self.status_label.setText(f"状态: 已保存 {len(self.annotations)} 条标注到 {os.path.basename(self.annotations_file_path)}")
             QMessageBox.information(self, "保存成功", f"已保存 {len(self.annotations)} 条标注到\n{self.annotations_file_path}")
-            self.annotations_modified = False  # 重置修改标志
+            
+            # 重置修改标志
+            self.annotations_modified = False
             
         except Exception as e:
             self.status_label.setText(f"状态: 保存标注失败: {str(e)}")
             QMessageBox.warning(self, "保存错误", f"无法保存标注: {str(e)}")
-    
+            
     def closeEvent(self, event):
         """重写关闭事件处理函数，在关闭前询问是否保存标注"""
         if self.annotations and self.annotations_modified:
